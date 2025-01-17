@@ -1,0 +1,21 @@
+[answer] 
+color = "#0000ff"
+font-scale = 1.2
+
+[question]
+border.paint = "#0000ff"
+border.thickness = "1pt"
+breakable = true
+
+[blank]
+length = "5em"
+
+[blank-circle]
+length = "1.4em"
+
+[blank-square]
+length = "1.4em"
+
+[multiple-choice]
+labeling = true
+checkboxing = true

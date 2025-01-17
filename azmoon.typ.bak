@@ -1,0 +1,410 @@
+#import "@preview/cetz:0.2.2": canvas, draw
+#let config = toml("config.toml")
+#let parse-length(val) = {
+  let m = val.matches(regex("(\d+(?:\.\d+)?)(mm|cm|in|pt|em)"))
+
+  assert(m.len() > 0, message: "no length found")
+  assert(m.len() <= 1, message: "more than one length found")
+
+  let (m,) = m
+
+  let map = (
+    "mm": 1mm,
+    "cm": 1cm,
+    "in": 1in,
+    "pt": 1pt,
+    "em": 1em,
+  )
+
+  map.at(m.captures.at(1)) * float(m.captures.at(0))
+}
+#let alphabetFa = (
+  "آ",
+  "ب",
+  "پ",
+  "ت",
+  "ث",
+  "ج",
+  "چ",
+  "ح",
+  "خ",
+  "د",
+  "ذ",
+  "ر",
+  "ز",
+  "ژ",
+  "س",
+  "ش",
+  "ص",
+  "ض",
+  "ط",
+  "ظ",
+  "ع",
+  "غ",
+  "ف",
+  "ق",
+  "ک",
+  "گ",
+  "ل",
+  "م",
+  "ن",
+  "و",
+  "ه",
+  "ی"
+)
+#let translate = (
+  "en" : (
+    "point": "point",
+    "points": "points",
+    "question": "question",
+    "questions": "questions"
+  ),
+  "fa" : (
+    "point": "نمره",
+    "points": "نمره",
+    "question": "پرسش",
+    "questions": "پرسش"
+  )
+)
+#let toFaDigit(digit) = {
+  show regex("\d"): y => str.from-unicode(str.to-unicode(y.text) + 1728)
+  show regex("[.]"): str.from-unicode(1643)
+  [#digit]
+}
+#let student = (
+  firstname: none,
+  lastname: none,
+  number: none,
+  grade: none,
+  class: none
+)
+#let exam = (
+  date: none,
+  time: none,
+  turn: none
+)
+#let question-points = state("question-points", 0)
+#let question-counter = counter("question")
+#let _show-answers = state("show-answers", false)
+#let show-answers(value) = {
+  let _show-answers = state("show-answers")
+  context _show-answers.update(value)
+  
+}
+#let answer(body) = {
+  context {
+    text(
+      size: text.size * config.answer.font-scale,
+      fill: rgb(config.answer.color),
+      if _show-answers.get() == true {body} else {hide[body]}
+    )
+  }
+}
+#let labelo(value) = {
+  context{
+  let size = measure([ب\)])
+  box(width: size.width)[
+    #h(1fr)
+    #box([#alphabetFa.at(value)\)])
+  ]
+  }
+}
+#let question(point: none, level: none, body) = {
+  question-counter.step()
+  question-points.update(p => p + point )
+  let quesNumber = box(
+    inset: 0pt,
+    canvas(
+      length: 1cm,
+      {
+        import draw: *
+        scale(40%)
+        circle((0,0), radius: 1.6em, stroke: .5pt, fill: blue.lighten(60%))
+        content(
+          (0,0),
+          [
+            #context if text.lang=="fa" {
+              toFaDigit( question-counter.display("1"))
+            } else {
+              question-counter.display()
+            }
+          ]
+        )
+        if level != none {
+          for i in range(5) {
+            let startDeg = 96deg + i * 72deg
+            let endDeg = 156deg + i * 72deg
+            let filling
+            if level != none and i < level {
+              filling = black
+            } else {
+              filling = none
+            }
+            merge-path(
+              fill: filling,
+              close: true,
+              stroke: .5pt,
+              {
+                arc((startDeg,1.9em), start: startDeg, stop: endDeg, radius: 1.9em, name: "sarc")
+                line((), (rel:(endDeg,.3em)))
+                arc((), start: endDeg, stop: startDeg, radius: 2.2em, name: "barc")
+              }
+            )
+          }
+        }
+      }
+    )
+  )
+  let quesPoint = box(
+    rect(
+      stroke: none,
+      inset: 4pt,
+      [
+        #set align(center + horizon)
+        #context if text.lang=="fa" {toFaDigit(point)} else {point}
+        #context translate.at(text.lang).point
+      ]
+    )
+  )
+  let quesWrap =  [
+    #block(
+      width: 100%,
+      radius: 5pt,
+      inset: (bottom: 10pt, rest: 5pt),
+      stroke: stroke(paint: blue, thickness: 1pt),
+      spacing: .2em,
+      [
+        #context{
+          let ques-number-size = measure(quesNumber)
+          let ques-point-size = measure(quesPoint)
+          let ques-number-point
+          let ques-number-point-size
+          if point !=none {
+            ques-number-point = box(
+              rect(
+                inset: 0pt,
+                stroke: stroke(thickness: .5pt, paint: blue),
+                radius: calc.max(ques-number-size.height, ques-point-size.height) /2 + 1pt,
+                grid(columns:2, align: horizon + center, quesNumber, quesPoint)
+              )
+            )
+          } else {
+            ques-number-point = [#quesNumber]
+          }
+          ques-number-point-size = measure(ques-number-point)
+          v( -ques-number-point-size.height * .4)
+          box(move(dy: ques-number-point-size.height * .4, ques-number-point))
+        }
+        #body
+      ]
+    )
+  ]
+  [#quesWrap]
+}
+#let part(body) = {
+  body
+}
+#let parts(columns: (1fr), labeling: true, ..parts) = {
+  let parts = parts.pos()
+  parts = parts.enumerate().map(part => {
+    let index = part.at(0)
+    let part = part.at(1)
+    // if labeling {[#box[#labelo(index)] #h(0pt)]h}
+    // [#part #h(1fr)]
+    if labeling {
+      grid(columns: 2,inset: 0pt, box[#labelo(index)#h(.1em)],[#part])
+    } else {
+      [#part #h(1fr)]
+    }
+  })
+  grid(columns: columns, row-gutter: 1.2em,..parts)
+}
+#let checkbox(value) = {
+  context {
+    let falseOopacity = 100%
+    let trueOpacity = 100%
+    let show-answer = _show-answers.get()
+    if value == true and show-answer == true {
+      falseOopacity = 100%
+      trueOpacity = 0%
+    } else if value == false and show-answer == true {
+      falseOopacity = 0%
+      trueOpacity = 100%
+    }
+    let color = rgb(config.answer.color)
+    box(
+      move(dy: .45em,
+        canvas(
+          length: 1cm,
+          {
+            import draw: *
+            scale(40%)
+            let rad = 1.8em
+            circle((0,0), radius: rad, stroke: .5pt)
+            line((45deg,rad),(225deg,rad), stroke: color.transparentize(falseOopacity))
+            line((135deg,rad),(-45deg,rad), stroke: color.transparentize(falseOopacity))
+            merge-path(
+              fill: color.transparentize(trueOpacity),
+              close: true,
+              stroke: none,
+              {
+                translate(x: 0, y: -rad / 3)
+                line((135deg, rad * 2 / 3),(0,0),(45deg,rad * 2),(rel:(135deg,rad / 6)),(rel:(225deg, rad * 11 / 6)),(rel:(135deg, rad * 3 / 6)))
+              }
+            )
+          }
+        )
+      )
+    )
+  }
+}
+#let tr(body) = {
+  (true,body)
+}
+#let fa(body) = {
+  (false,body)
+}
+#let pr(body) = {
+  (none,body)
+}
+#let truefalse(columns: 1, labeling: true, ..props) = {
+  let props = props.pos()
+  props = props.enumerate().map((prop) => {
+    let index = prop.at(0)
+    let value = prop.at(1).at(0)
+    let prop = prop.at(1).at(1)
+    [
+      #if labeling [#labelo(index)]
+      #checkbox(value)
+      #prop
+      #h(1fr)
+    ]
+  })
+  grid(columns: columns, row-gutter: .7em,..props)
+}
+#let choice(body) = {
+  (none,body)
+}
+#let true-choice(body) = {
+  (true,body)
+}
+#let multiple-choice(columns: auto, labeling: true, ..choices) = {
+  let choices = choices.pos()
+  if columns == auto {columns = choices.len()}
+  choices = choices.enumerate().map((choice) => {
+    let index = choice.at(0)
+    let value = choice.at(1).at(0)
+    let choice = choice.at(1).at(1)
+    [
+      #if labeling [#alphabetFa.at(index))]
+      #checkbox(value)
+      #choice
+      #h(1fr)
+    ]
+  })
+  grid(columns: columns, row-gutter: 0.5em,..choices)
+}
+#let _extract-length-answer(..args) = {
+  args = args.pos()
+  let length = none
+  let answer = none
+  if args.at(0, default: none) == auto or  type(args.at(0, default: none)) == "length" {
+    length = args.at(0)
+    answer = args.at(1, default: none)
+  } else if args.at(1, default: none) == auto or  type(args.at(1, default: none)) == "length" {
+    length = args.at(1)
+    answer = args.at(0,default: none)
+  } else {
+    answer = args.at(0,default: none)
+  }
+  return (length, answer)
+}
+#let blank(..args) = {
+  context {
+    let length = auto
+    let answer = none
+    let answer-font-size = text.size * config.answer.font-scale
+    let answer-color = rgb(config.answer.color)
+    (length, answer) = _extract-length-answer(..args)
+    let length-default = parse-length(config.blank.length)
+    if answer == none {
+      if length == none or length == auto {
+        length = length-default
+      }
+    } else {
+      let answer-box = box(stroke: (bottom: stroke(thickness: 1pt, dash: "dotted")),
+        align(center,[
+          #set text(fill: answer-color, size: answer-font-size)
+          #answer
+        ])
+      )
+      if length == none {
+        length = length-default
+      } else if length == auto {
+        length = measure(answer-box).width + .2em
+      }
+    }
+    box(width: length, stroke: (bottom: stroke(thickness: 1pt, dash: "dotted")),
+      align(center,[
+        #set text(fill: answer-color, size: answer-font-size)
+        #if _show-answers.get() == true {answer}
+      ])
+    )
+  }
+}
+#let blank-circle(..args) = {
+  context{
+    let length = none
+    let answer = none
+    let answer-font-size = text.size * config.answer.font-scale
+    let answer-color = rgb(config.answer.color)
+    (length, answer) = _extract-length-answer(..args)
+    if length == none {
+      length = parse-length(config.blank-circle.length)
+    }
+    box(
+      move(dy: length / 2 - .3em, 
+        circle(radius: length / 2,stroke: .5pt,[
+          #context{
+            set text(
+              size: text.size * config.answer.font-scale,
+              fill: answer-color,
+              top-edge: "cap-height",
+              bottom-edge: "descender",
+            )
+            set align(center + horizon)
+            answer
+          }
+        ])
+      )
+    )
+  }
+}
+#let blank-rect(..args) = {
+  context{
+    let length = none
+    let answer = none
+    let answer-font-size = text.size * config.answer.font-scale
+    let answer-color = rgb(config.answer.color)
+    (length, answer) = _extract-length-answer(..args)
+    if length == none {
+      length = parse-length(config.blank-circle.length)
+    }
+    box(
+      move(dy: length / 2 - .3em, 
+        rect(width: length, height: length,stroke: .5pt,[
+          #context{
+            set text(
+              size: text.size * config.answer.font-scale,
+              fill: answer-color,
+              top-edge: "cap-height",
+              bottom-edge: "descender",
+            )
+            set align(center + horizon)
+            answer
+          }
+        ])
+      )
+    )
+  }
+}

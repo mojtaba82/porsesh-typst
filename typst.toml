@@ -1,0 +1,8 @@
+[package]
+name = "porsesh"
+version = "0.1.0"
+entrypoint = "porsesh.typ"
+authors = ["Mojtaba Baghban"]
+license = "LGPL"
+description = "A package for type question."
+keywords = ["exam", "question"]
