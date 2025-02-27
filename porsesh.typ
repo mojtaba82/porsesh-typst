@@ -497,20 +497,22 @@
 }
 #let _extract-length-answer(..args) = {
   args = args.pos()
-  let length = none
+  let leng = none
   let answer = none
-  if args.at(0, default: none) == auto or  type(args.at(0, default: none)) == "length" {
-    length = args.at(0)
+  if args.at(0, default: none) == auto or  type(args.at(0, default: none)) == length {
+    leng = args.at(0)
     answer = args.at(1, default: none)
-  } else if args.at(1, default: none) == auto or  type(args.at(1, default: none)) == "length" {
-    length = args.at(1)
+  } else if args.at(1, default: none) == auto or  type(args.at(1, default: none)) == length {
+    leng = args.at(1)
     answer = args.at(0,default: none)
   } else {
     answer = args.at(0,default: none)
   }
-  return (length, answer)
+  return (leng, answer)
 }
-#let blank(..args) = {
+#let blank(..args, dash: "dotted") = {
+  if dash == false {dash = none}
+  if dash == true {dash = "dotted"}
   context {
     let length = auto
     let answer = none
@@ -523,8 +525,15 @@
         length = length-default
       }
     } else {
-      let answer-box = box(stroke: (bottom: stroke(thickness: 1pt, dash: "dotted")),
-        align(center,[
+      let answer-box = box(
+        stroke: {
+          if dash != none {
+            (bottom: stroke(thickness: 1pt, dash: dash))
+          } else {
+            none
+          }
+        },
+          align(center,[
           #set text(fill: answer-color, size: answer-font-size)
           #answer
         ])
@@ -535,7 +544,15 @@
         length = measure(answer-box).width + .2em
       }
     }
-    box(width: length, stroke: (bottom: stroke(thickness: 1pt, dash: "dotted")),
+    box(
+      width: length,
+      stroke: {
+        if dash != none {
+          (bottom: stroke(thickness: 1pt, dash: dash))
+        } else {
+          none
+        }
+      },
       align(center,[
         #set text(fill: answer-color, size: answer-font-size)
         #if _show-answers.get() == true {box(height: 0em, move(dy: -measure(answer).height, answer))} else {hide[#answer]}
